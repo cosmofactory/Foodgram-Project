@@ -33,6 +33,7 @@ ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
     'api.apps.ApiConfig',
+    'shopcart.apps.ShopcartConfig',
     'users.apps.UsersConfig',
     'recipe.apps.RecipeConfig',
     'django.contrib.admin',

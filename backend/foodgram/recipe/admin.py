@@ -35,7 +35,7 @@ class IngredientsAdmin(admin.ModelAdmin):
     """Admin for RIInline."""
 
     inlines = [RIInline, ]
-    list_display = ['name', 'measurment_unit', ]
+    list_display = ['name', 'measurement_unit', ]
     list_filter = ['name', ]
 
 

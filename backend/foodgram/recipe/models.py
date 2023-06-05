@@ -6,8 +6,8 @@ class Ingredients(models.Model):
     """Ingredients model."""
 
     name = models.CharField(max_length=256)
-    measurment_unit = models.CharField(verbose_name='единицы измерения')
-    amount = models.FloatField(verbose_name='количество')
+    measurement_unit = models.CharField(verbose_name='единицы измерения')
+    slug = models.SlugField(max_length=90, unique=True)
 
     def __str__(self):
         return self.name
@@ -22,6 +22,7 @@ class Tags(models.Model):
 
     name = models.CharField(max_length=30)
     color = models.CharField(max_length=6)
+    slug = models.SlugField(max_length=30, unique=True)
 
     def __str__(self):
         return self.name
@@ -61,7 +62,7 @@ class Recipe(models.Model):
     )
 
     def __str__(self):
-        return f'{self.author} {self.name}'
+        return f'{self.author.username} {self.name}'
 
     class Meta:
         ordering = ['-name']
@@ -81,6 +82,7 @@ class RecipeIngredients(models.Model):
         related_name='ingredient',
         on_delete=models.CASCADE
     )
+    amount = models.FloatField()
 
     def __str__(self):
         return f'{self.recipe} {self.ingredient}'
