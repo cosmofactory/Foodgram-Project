@@ -151,6 +151,8 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
     'PAGE_SIZE': 20,
+    'EXCEPTION_HANDLER': 'rest_framework.views.exception_handler',
+    'NON_FIELD_ERRORS_KEY': 'errors',
 }
 
 # Custom User model

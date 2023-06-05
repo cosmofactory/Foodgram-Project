@@ -1,6 +1,7 @@
 from django.urls import path, include
-from rest_framework.routers import DefaultRouter
+from rest_framework.routers import DefaultRouter, Route, DynamicRoute
 from api.views import TagsViewSet, RecipeViewSet, ShopCartViewSet
+from api import views
 
 
 v1_router = DefaultRouter()

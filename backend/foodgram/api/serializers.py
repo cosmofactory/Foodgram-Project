@@ -5,6 +5,9 @@ from shopcart.models import ShopCart
 import base64
 from django.core.files.base import ContentFile
 from django.shortcuts import get_object_or_404
+from django.http import Http404
+from rest_framework.validators import UniqueTogetherValidator
+from django.core.exceptions import ValidationError
 
 
 class Base64ImageField(serializers.ImageField):
@@ -55,7 +58,7 @@ class RecipeSerializer(serializers.ModelSerializer):
     author = CustomUserSerializer(read_only=True)
     image = Base64ImageField(required=True, allow_null=True)
     is_favorited = serializers.BooleanField(default=False)
-    is_in_shopping_cart = serializers.BooleanField(default=False)
+    is_in_shopping_cart = serializers.SerializerMethodField()
 
     class Meta:
         model = Recipe
@@ -76,14 +79,10 @@ class RecipeSerializer(serializers.ModelSerializer):
         try:
             request = self.context['request']
             user = request.user
-            if ShopCart.objects.filter(
-                user=user,
-                recipe=obj.name
-            ).exists():
-                return True
-        except Exception:
+            get_object_or_404(ShopCart, user=user, recipe_id=obj.id)
+            return True
+        except Http404:
             return False
-
 
 
 class RecipeCreationSerializer(serializers.ModelSerializer):
@@ -119,13 +118,29 @@ class RecipeShopcartSerializer(serializers.ModelSerializer):
 class ShopCartSerializer(serializers.ModelSerializer):
     """Shop cart serializer."""
 
-    user = serializers.CurrentUserDefault()
-
     class Meta:
         model = ShopCart
         fields = ['user', 'recipe']
 
+
+    def validate(self, data):
+        """Checks if this item is already in users cart."""
+
+
+        request = self.context['request']
+        user = request.user.id
+        recipe = self.context.get('view').kwargs.get('recipe_id')
+        try:
+            if get_object_or_404(ShopCart, user=user, recipe=recipe):
+                raise ValidationError('This recipe is already in your cart.')
+        except Http404:
+
+            return data
+
+
+
     def to_representation(self, instance):
+        """Returns some recipe information after successful adding."""
         recipe = get_object_or_404(Recipe, id=instance.recipe.id)
         serializer = RecipeShopcartSerializer(recipe)
         return serializer.data

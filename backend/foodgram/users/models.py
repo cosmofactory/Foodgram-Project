@@ -28,9 +28,6 @@ class CustomUser(AbstractUser):
         max_length=150
     )
     is_subscribed = models.BooleanField(default=False)
-    # role = models.CharField(
-
-    # )
 
     USERNAME_FIELD = 'email'
 

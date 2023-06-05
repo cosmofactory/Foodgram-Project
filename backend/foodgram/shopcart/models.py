@@ -17,3 +17,11 @@ class ShopCart(models.Model):
         on_delete=models.CASCADE,
         null=True
     )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'recipe'],
+                name='unique_user_recipe'
+            )
+        ]
