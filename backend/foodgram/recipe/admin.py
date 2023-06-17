@@ -5,7 +5,7 @@ from recipe.models import (
     Recipe,
     RecipeIngredients,
     RecipeTags,
-    Follow
+    Favorite
 )
 
 
@@ -48,4 +48,4 @@ class TagsAdmin(admin.ModelAdmin):
 admin.site.register(Ingredients, IngredientsAdmin)
 admin.site.register(Tags, TagsAdmin)
 admin.site.register(Recipe, RecipeAdmin)
-admin.site.register(Follow)
+admin.site.register(Favorite)

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from users.models import CustomUser
+from users.models import CustomUser, Follow
 
 
 class CustomUserAdmin(admin.ModelAdmin):
@@ -10,3 +10,4 @@ class CustomUserAdmin(admin.ModelAdmin):
 
 
 admin.site.register(CustomUser, CustomUserAdmin)
+admin.site.register(Follow)

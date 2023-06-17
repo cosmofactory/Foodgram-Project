@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from recipe.models import Recipe, Tags, Ingredients, Follow, RecipeIngredients
+from recipe.models import Recipe, Tags, Ingredients, RecipeIngredients, Favorite
 from users.serializers import CustomUserSerializer
 from shopcart.models import ShopCart
 import base64
@@ -16,6 +16,41 @@ class Base64ImageField(serializers.ImageField):
             format, imgstr = data.split(';base64,')  
             ext = format.split('/')[-1]  
             data = ContentFile(base64.b64decode(imgstr), name='temp.' + ext)
+
+
+class SubscriptionSerializer(serializers.Serializer):
+    """Abstract model for serializers that do subscriptions."""
+    
+    class Meta:
+        fields = [
+            'id',
+            'name',
+            'image',
+            'cooking_time'
+        ]
+    
+    def __init__(self, instance=None, data=None, *args, **kwargs):
+        super().__init__(instance=instance, data=data, **kwargs)
+        self.error_message = 'This recipe is already in your cart.'
+        self.model = ShopCart
+
+
+    def validate(self, data):
+        """Checks if this item is already in users cart."""
+
+        recipe = self.instance
+        user = self.context.get('request').user.id
+        try:
+            if get_object_or_404(self.model, user_id=user, recipe_id=recipe.id):
+                raise ValidationError(self.error_message)
+        except Http404:
+            return data
+
+    def to_internal_value(self, data):
+        recipe = self.instance
+        data['name'] = recipe.name
+        data['cooking_time'] = recipe.cooking_time
+        return data
 
 
 class TagSerializer(serializers.ModelSerializer):
@@ -102,63 +137,30 @@ class RecipeCreationSerializer(serializers.ModelSerializer):
         ]
 
 
-class RecipeShopcartSerializer(serializers.ModelSerializer):
-    """Adding to shopcart serializer."""
+
+class RecipeShopcartSerializer(
+    SubscriptionSerializer,
+    serializers.ModelSerializer
+):
+    """Shopcart serializer."""
 
     class Meta:
         model = Recipe
-        fields = [
-            'id',
-            'name',
-            'image',
-            'cooking_time'
-        ]
-
-    def validate(self, data):
-        """Checks if this item is already in users cart."""
-
-        recipe = self.instance
-        user = self.context.get('request').user.id
-        try:
-            if get_object_or_404(ShopCart, user_id=user, recipe_id=recipe.id):
-                raise ValidationError('This recipe is already in your cart.')
-        except Http404:
-            return data
-
-    def to_internal_value(self, data):
-        recipe = self.instance
-        user = self.context.get('request').user.id
-        recipe = get_object_or_404(ShopCart, user_id=user, recipe_id=recipe.id)
-        data['name'] = recipe.name
-        data['cooking_time'] = recipe.cooking_time
-        return data
+        fields = SubscriptionSerializer.Meta.fields
 
 
-class ShopCartSerializer(serializers.ModelSerializer):
-    """Shop cart serializer."""
+class FavoriteSerializer(
+    SubscriptionSerializer,
+    serializers.ModelSerializer
+):
+    """Favorite serializer."""
 
     class Meta:
-        model = ShopCart
-        fields = ['user', 'recipe']
+        model = Recipe
+        fields = SubscriptionSerializer.Meta.fields
 
-    def validate(self, data):
-        """Checks if this item is already in users cart."""
-
-        request = self.context['request']
-        user = request.user.id
-        recipe = self.context.get('view').kwargs.get('recipe_id')
-        try:
-            if get_object_or_404(ShopCart, user=user, recipe=recipe):
-                raise ValidationError('This recipe is already in your cart.')
-        except Http404:
-
-            return data
-
-
-
-    def to_representation(self, instance):
-        """Returns some recipe information after successful adding."""
-        recipe = get_object_or_404(Recipe, id=instance.recipe.id)
-        serializer = RecipeShopcartSerializer(recipe)
-        return serializer.data
-
+    def __init__(self, instance=None, data=None, *args, **kwargs):
+        super().__init__(instance=instance, data=data, **kwargs)
+        self.error_message = 'You are already subscribed to this author.'
+        self.model = Favorite
+        

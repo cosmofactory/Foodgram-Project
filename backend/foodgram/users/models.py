@@ -2,11 +2,6 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 
 
-# ROLES = (
-#     (USER, 'Пользователь'),
-#     (ADMIN, 'Администратор')
-# )
-
 class CustomUser(AbstractUser):
     """Reworked User model."""
 
@@ -36,3 +31,29 @@ class CustomUser(AbstractUser):
         'first_name',
         'last_name',
     ]
+
+
+class Follow(models.Model):
+    """Follower model."""
+
+    user = models.ForeignKey(
+        CustomUser,
+        related_name='follower',
+        on_delete=models.CASCADE
+    )
+    author = models.ForeignKey(
+        CustomUser,
+        related_name='following',
+        on_delete=models.CASCADE
+    )
+
+    def __str__(self):
+        return f'{self.user.id} is following {self.author.id}'
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'author'],
+                name='unique_following'
+            )
+        ]

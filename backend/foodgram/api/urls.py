@@ -1,17 +1,13 @@
 from django.urls import path, include
-from rest_framework.routers import DefaultRouter, Route, DynamicRoute
-from api.views import TagsViewSet, RecipeViewSet, ShopCartViewSet
-from api import views
+from rest_framework.routers import DefaultRouter
+from api.views import TagsViewSet, RecipeViewSet
+from users.views import UserViewSet
 
 
 v1_router = DefaultRouter()
 v1_router.register('tags', TagsViewSet, basename='tags')
 v1_router.register('recipes', RecipeViewSet, basename='recipes')
-v1_router.register(
-    r'recipes/(?P<recipe_id>\d+)/shopping_cart',
-    ShopCartViewSet,
-    basename='shopping_cart'
-)
+v1_router.register('users', UserViewSet)
 
 urlpatterns = [
     path('', include(v1_router.urls)),

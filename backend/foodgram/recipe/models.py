@@ -108,32 +108,30 @@ class RecipeTags(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=['recipe', 'tag'],
-                name='unique tag'
+                name='unique_tag'
             )
         ]
 
 
-class Follow(models.Model):
-    """Follower model."""
+class Favorite(models.Model):
+    """Favorite model."""
 
     user = models.ForeignKey(
         CustomUser,
-        related_name='follower',
-        on_delete=models.CASCADE
+        on_delete=models.CASCADE,
+        null=True
     )
-    author = models.ForeignKey(
-        CustomUser,
-        related_name='following',
-        on_delete=models.CASCADE
+    recipe = models.ForeignKey(
+        Recipe,
+        related_name='favorited',
+        on_delete=models.CASCADE,
+        null=True
     )
-
-    def __str__(self):
-        return f'{self.user.id} is following {self.author.id}'
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['user', 'author'],
-                name='unique_following'
+                fields=['user', 'recipe'],
+                name='unique_user_recipe_favorite'
             )
         ]
