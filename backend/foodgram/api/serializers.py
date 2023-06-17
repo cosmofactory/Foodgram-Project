@@ -114,6 +114,25 @@ class RecipeShopcartSerializer(serializers.ModelSerializer):
             'cooking_time'
         ]
 
+    def validate(self, data):
+        """Checks if this item is already in users cart."""
+
+        recipe = self.instance
+        user = self.context.get('request').user.id
+        try:
+            if get_object_or_404(ShopCart, user_id=user, recipe_id=recipe.id):
+                raise ValidationError('This recipe is already in your cart.')
+        except Http404:
+            return data
+
+    def to_internal_value(self, data):
+        recipe = self.instance
+        user = self.context.get('request').user.id
+        recipe = get_object_or_404(ShopCart, user_id=user, recipe_id=recipe.id)
+        data['name'] = recipe.name
+        data['cooking_time'] = recipe.cooking_time
+        return data
+
 
 class ShopCartSerializer(serializers.ModelSerializer):
     """Shop cart serializer."""
@@ -122,10 +141,8 @@ class ShopCartSerializer(serializers.ModelSerializer):
         model = ShopCart
         fields = ['user', 'recipe']
 
-
     def validate(self, data):
         """Checks if this item is already in users cart."""
-
 
         request = self.context['request']
         user = request.user.id

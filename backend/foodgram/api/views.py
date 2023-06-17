@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework.exceptions import bad_request
 from rest_framework.viewsets import ModelViewSet, mixins, GenericViewSet
 from rest_framework.decorators import action
+import sys
 
 
 
@@ -26,6 +27,19 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     serializer_class = RecipeSerializer
     queryset = Recipe.objects.all()
+
+
+    @action(detail=True, methods=('post', 'delete'), url_path='shopping_cart')
+    def shopping_cart(self, request, **kwargs):
+        user = self.request.user.id
+        recipe = get_object_or_404(Recipe, **kwargs)
+        if self.request.method == 'POST':
+            serializer = RecipeShopcartSerializer(recipe, data=request.data, context={'request': request})
+            serializer.is_valid(raise_exception=True)
+            ShopCart.objects.create(user_id=user, recipe=recipe)
+            serializer.save(id=user, recipe=recipe)
+            return Response(serializer.data)
+
 
 
 class ShopCartViewSet(ModelViewSet):
@@ -47,13 +61,3 @@ class ShopCartViewSet(ModelViewSet):
         instance.delete()
         
 
-# @action(detail=True, methods=('post', 'delete'))
-# def shopping_cart(self, request, **kwargs):
-#     user = self.request.user
-#     recipe = get_object_or_404(Recipe, **kwargs)
-#     if self.request.method == 'POST':
-#         serializer = ShopCartSerializer(
-#             recipe,
-#             context={'request': request}
-#         )
-#         serializer.save(user=user, recipe=recipe)
