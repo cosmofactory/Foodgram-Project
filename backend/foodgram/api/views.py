@@ -1,28 +1,34 @@
-from users.models import CustomUser
-from rest_framework import viewsets, decorators, status
-from api.serializers import TagSerializer, RecipeSerializer, RecipeShopcartSerializer, FavoriteSerializer
-from recipe.models import Recipe, Ingredients, Tags, Favorite
-from users.models import CustomUser
-from shopcart.models import ShopCart
-from django.shortcuts import get_object_or_404
-from django.db import IntegrityError
-from django.http import FileResponse
-from reportlab.pdfgen import canvas
-from rest_framework.response import Response
-from rest_framework.exceptions import bad_request
-from rest_framework.viewsets import ModelViewSet, mixins, GenericViewSet
-from rest_framework.decorators import action
-from django.http import Http404
 from io import BytesIO
-from django.core.exceptions import ValidationError
+
+from api.serializers import (
+    FavoriteSerializer, RecipeSerializer, RecipeShopcartSerializer,
+    TagSerializer, IngredientSerializer
+)
+from django.http import FileResponse, Http404
+from django.shortcuts import get_object_or_404
+from recipe.models import Favorite, Ingredients, Recipe, Tags
+from reportlab.pdfgen import canvas
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.viewsets import GenericViewSet, ModelViewSet, mixins
+from shopcart.models import ShopCart
 
 
-
-class TagsViewSet(viewsets.ModelViewSet):
+class TagsViewSet(viewsets.ReadOnlyModelViewSet):
     """Viewset for Tags."""
 
     serializer_class = TagSerializer
     queryset = Tags.objects.all()
+    pagination_class = None
+
+
+class IngredientsViewSet(viewsets.ReadOnlyModelViewSet):
+    """Viewset for Ingredients."""
+
+    serializer_class = IngredientSerializer
+    queryset = Ingredients.objects.all()
+    pagination_class = None
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
@@ -30,7 +36,6 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     serializer_class = RecipeSerializer
     queryset = Recipe.objects.all()
-
 
     @action(detail=True, methods=('post', 'delete'))
     def shopping_cart(self, request, **kwargs):
@@ -61,21 +66,23 @@ class RecipeViewSet(viewsets.ModelViewSet):
                     {"errors": "You dont have this recipe in your shopcart."},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
 
     @action(detail=False)
     def download_shopping_cart(self, request):
         """Download user's shopcart."""
 
-        information = ShopCart.objects.filter(recipe__shopcart__user=self.request.user.id)
+        information = ShopCart.objects.filter(
+            recipe__shopcart__user=self.request.user.id
+        )
         buffer = BytesIO()
         file = canvas.Canvas(buffer)
         file.drawString(100, 100, str(information))
         file.showPage()
         file.save()
         buffer.seek(0)
-        return FileResponse(buffer, as_attachment=True, filename='shopping_cart.pdf')
-
+        return FileResponse(
+            buffer, as_attachment=True, filename='shopping_cart.pdf'
+        )
 
     @action(detail=True, methods=('post', 'delete'))
     def favorite(self, request, **kwargs):
@@ -106,4 +113,3 @@ class RecipeViewSet(viewsets.ModelViewSet):
                     {"errors": "This recipe is not in your favorites."},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-

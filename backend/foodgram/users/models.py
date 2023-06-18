@@ -22,7 +22,6 @@ class CustomUser(AbstractUser):
     password = models.CharField(
         max_length=150
     )
-    is_subscribed = models.BooleanField(default=False)
 
     USERNAME_FIELD = 'email'
 

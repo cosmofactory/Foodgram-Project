@@ -1,13 +1,16 @@
-from rest_framework import serializers
-from recipe.models import Recipe, Tags, Ingredients, RecipeIngredients, Favorite
-from users.serializers import CustomUserSerializer
-from shopcart.models import ShopCart
 import base64
-from django.core.files.base import ContentFile
-from django.shortcuts import get_object_or_404
-from django.http import Http404
-from rest_framework.validators import UniqueTogetherValidator
+
 from django.core.exceptions import ValidationError
+from django.core.files.base import ContentFile
+from django.http import Http404
+from django.shortcuts import get_object_or_404
+from recipe.models import (
+    Favorite, Ingredients, Recipe, RecipeIngredients, Tags
+)
+from rest_framework import serializers
+from shopcart.models import ShopCart
+from users.serializers import CustomUserSerializer
+from rest_framework.validators import UniqueTogetherValidator, UniqueValidator
 
 
 class Base64ImageField(serializers.ImageField):
@@ -16,6 +19,7 @@ class Base64ImageField(serializers.ImageField):
             format, imgstr = data.split(';base64,')  
             ext = format.split('/')[-1]  
             data = ContentFile(base64.b64decode(imgstr), name='temp.' + ext)
+        return super().to_internal_value(data)
 
 
 class SubscriptionSerializer(serializers.Serializer):
@@ -57,9 +61,8 @@ class TagSerializer(serializers.ModelSerializer):
     """Tag serializer."""
 
     class Meta:
-        model = Ingredients
-        fields = '__all__'
         model = Tags
+        fields = '__all__'
 
 
 class IngredientSerializer(serializers.ModelSerializer):
@@ -75,6 +78,8 @@ class IngredientRecipeSerializer(serializers.ModelSerializer):
 
     name = serializers.SerializerMethodField()
     measurement_unit = serializers.SerializerMethodField()
+    # # amount = serializers.SerializerMethodField()
+
     class Meta:
         model = RecipeIngredients
         fields = (
@@ -84,15 +89,24 @@ class IngredientRecipeSerializer(serializers.ModelSerializer):
             'amount'
         )
 
+    def get_name(self, obj):
+        return obj.ingredient.name
+
+    def get_measurement_unit(self, obj):
+        return obj.ingredient.measurement_unit
+
 
 class RecipeSerializer(serializers.ModelSerializer):
     """Recipe serializer."""
 
     tags = TagSerializer(many=True)
-    ingredients = IngredientRecipeSerializer(many=True)
+    ingredients = IngredientRecipeSerializer(
+        source='recipe_with_ingredient',
+        many=True
+    )
     author = CustomUserSerializer(read_only=True)
     image = Base64ImageField(required=True, allow_null=True)
-    is_favorited = serializers.BooleanField(default=False)
+    is_favorited = serializers.SerializerMethodField()
     is_in_shopping_cart = serializers.SerializerMethodField()
 
     class Meta:
@@ -115,6 +129,15 @@ class RecipeSerializer(serializers.ModelSerializer):
             request = self.context['request']
             user = request.user
             get_object_or_404(ShopCart, user=user, recipe_id=obj.id)
+            return True
+        except Http404:
+            return False
+        
+    def get_is_favorited(self, obj):
+        try:
+            request = self.context['request']
+            user = request.user
+            get_object_or_404(Favorite, user=user, recipe_id=obj.id)
             return True
         except Http404:
             return False
@@ -163,4 +186,3 @@ class FavoriteSerializer(
         super().__init__(instance=instance, data=data, **kwargs)
         self.error_message = 'You are already subscribed to this author.'
         self.model = Favorite
-        

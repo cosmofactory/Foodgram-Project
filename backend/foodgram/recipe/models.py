@@ -1,5 +1,6 @@
 from django.db import models
 from users.models import CustomUser
+from colorfield.fields import ColorField
 
 
 class Ingredients(models.Model):
@@ -11,7 +12,7 @@ class Ingredients(models.Model):
 
     def __str__(self):
         return self.name
-    
+
     class Meta:
         ordering = ['-name']
         verbose_name_plural = 'Ingredients'
@@ -21,12 +22,12 @@ class Tags(models.Model):
     """Tags model."""
 
     name = models.CharField(max_length=30)
-    color = models.CharField(max_length=6)
+    color = ColorField(default='#FF0000')
     slug = models.SlugField(max_length=30, unique=True)
 
     def __str__(self):
         return self.name
-    
+
     class Meta:
         ordering = ['-name']
         verbose_name_plural = 'Tags'
