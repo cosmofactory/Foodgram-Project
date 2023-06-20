@@ -32,7 +32,7 @@ class CustomUserSerializer(UserSerializer):
             user = self.context.get('request').user
             get_object_or_404(Follow, user=user.id, author=obj)
             return True
-        except Http404:
+        except Exception:
             return False
 
 
@@ -67,7 +67,7 @@ class FollowSerializer(CustomUserSerializer):
     """Follow serializer."""
 
     is_subscribed = SerializerMethodField()
-    recipes = ShortRecipeSerializer(many=True, read_only=True)
+    recipes = SerializerMethodField()
     recipes_count = SerializerMethodField()
 
     class Meta:
@@ -89,13 +89,24 @@ class FollowSerializer(CustomUserSerializer):
         )
         return counter[0].recipes__count
 
+    def get_recipes(self, obj):
+        query_params = self.context.get('request').query_params
+        recipes_limit = query_params.get('recipes_limit')
+        if recipes_limit is not None:
+
+            recipes = Recipe.objects.filter(author=obj.id)[:int(recipes_limit)]
+        else:
+            recipes = Recipe.objects.filter(author=obj.id)
+        serializer = ShortRecipeSerializer(recipes, many=True, read_only=True)
+        return serializer.data
+
     def validate(self, data):
         """Checks if you already follow this user."""
 
         author = self.instance
-        user = self.context.get('request').user.id
+        user = self.context.get('request').user
         try:
-            if get_object_or_404(Follow, user_id=user, author_id=author.id):
+            if get_object_or_404(Follow, user_id=user.id, author_id=author.id):
                 raise ValidationError('You are already following this author.')
         except Http404:
             return data

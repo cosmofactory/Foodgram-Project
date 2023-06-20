@@ -27,7 +27,11 @@ class UserViewSet(DjoserUserViewset):
     def subscriptions(self, request):
         follow = get_list_or_404(CustomUser, following__user=self.request.user)
         page = self.paginate_queryset(follow)
-        serializer = FollowListSerializer(page, many=True)
+        serializer = FollowListSerializer(
+            page,
+            context={'request': request},
+            partial=True,
+            many=True)
         return self.get_paginated_response(serializer.data)
 
     @action(detail=True, methods=('post', 'delete'))

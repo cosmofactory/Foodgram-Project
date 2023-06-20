@@ -88,6 +88,14 @@ class RecipeIngredients(models.Model):
     def __str__(self):
         return f'{self.recipe} {self.ingredient}'
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['recipe', 'ingredient'],
+                name='unique_ingredient_recipe'
+            )
+        ]
+
 
 class RecipeTags(models.Model):
     """Connection model for recipes and tags."""
