@@ -1,3 +1,4 @@
+from colorfield.fields import ColorField
 from django.db import models
 from users.models import CustomUser
 
@@ -7,11 +8,11 @@ class Ingredients(models.Model):
 
     name = models.CharField(max_length=256)
     measurement_unit = models.CharField(verbose_name='единицы измерения')
-    slug = models.SlugField(max_length=90, unique=True)
+    slug = models.SlugField(max_length=90)
 
     def __str__(self):
         return self.name
-    
+
     class Meta:
         ordering = ['-name']
         verbose_name_plural = 'Ingredients'
@@ -21,12 +22,12 @@ class Tags(models.Model):
     """Tags model."""
 
     name = models.CharField(max_length=30)
-    color = models.CharField(max_length=6)
+    color = ColorField(default='#FF0000')
     slug = models.SlugField(max_length=30, unique=True)
 
     def __str__(self):
         return self.name
-    
+
     class Meta:
         ordering = ['-name']
         verbose_name_plural = 'Tags'
@@ -42,7 +43,12 @@ class Recipe(models.Model):
         verbose_name='Пользователь'
     )
     name = models.CharField(max_length=256)
-    image = models.ImageField(null=True, blank=True, upload_to='images/')
+    image = models.ImageField(
+        null=True,
+        blank=True,
+        upload_to='images/',
+        max_length=250
+    )
     text = models.TextField(verbose_name='Текст рецепта')
     ingredients = models.ManyToManyField(
         Ingredients,
@@ -86,6 +92,14 @@ class RecipeIngredients(models.Model):
 
     def __str__(self):
         return f'{self.recipe} {self.ingredient}'
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['recipe', 'ingredient'],
+                name='unique_ingredient_recipe'
+            )
+        ]
 
 
 class RecipeTags(models.Model):

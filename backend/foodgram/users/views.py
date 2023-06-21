@@ -1,36 +1,39 @@
-from users.models import CustomUser
-from rest_framework import viewsets, decorators, status
-from api.serializers import TagSerializer, RecipeSerializer, RecipeShopcartSerializer, FavoriteSerializer
-from recipe.models import Recipe, Ingredients, Tags, Favorite
-from users.models import CustomUser, Follow
-from shopcart.models import ShopCart
-from django.shortcuts import get_object_or_404, get_list_or_404
-from django.db import IntegrityError
-from django.http import FileResponse
-from reportlab.pdfgen import canvas
-from rest_framework.response import Response
-from rest_framework.exceptions import bad_request
-from rest_framework.viewsets import ModelViewSet, mixins, GenericViewSet
-from rest_framework.decorators import action
 from django.http import Http404
-from io import BytesIO
-from django.core.exceptions import ValidationError
-from users.serializers import FollowSerializer
+from django.shortcuts import get_list_or_404, get_object_or_404
 from djoser.views import UserViewSet as DjoserUserViewset
-from rest_framework.pagination import PageNumberPagination, LimitOffsetPagination
+from rest_framework import status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from users.models import CustomUser, Follow
+from users.serializers import (
+    CustomUserSerializer, FollowListSerializer,
+    FollowSerializer
+)
 
 
 class UserViewSet(DjoserUserViewset):
     """Viewset for managing Followers"""
 
-  
+    def get(self, request):
+        """Get method for users."""
+        serializer = CustomUserSerializer(
+            self.queryset,
+            many=True, data=request.data,
+            context={'request': request}
+        )
+        serializer.is_valid(raise_exception=True)
+        return Response(serializer.data)
+
     @action(detail=False)
     def subscriptions(self, request):
         follow = get_list_or_404(CustomUser, following__user=self.request.user)
         page = self.paginate_queryset(follow)
-        serializer = FollowSerializer(page, many=True)
+        serializer = FollowListSerializer(
+            page,
+            context={'request': request},
+            partial=True,
+            many=True)
         return self.get_paginated_response(serializer.data)
-    
 
     @action(detail=True, methods=('post', 'delete'))
     def subscribe(self, request, **kwargs):
@@ -66,5 +69,3 @@ class UserViewSet(DjoserUserViewset):
                     {"errors": "You are not following this author."},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-
-

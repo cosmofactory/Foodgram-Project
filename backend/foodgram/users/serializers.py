@@ -1,6 +1,8 @@
 from users.models import CustomUser
 from djoser.serializers import UserSerializer
-from rest_framework.serializers import SerializerMethodField, StringRelatedField, ModelSerializer
+from rest_framework.serializers import (
+    SerializerMethodField, ModelSerializer, BooleanField
+)
 from users.models import Follow
 from django.db.models import Count
 from recipe.models import Recipe
@@ -12,6 +14,8 @@ from django.http import Http404
 class CustomUserSerializer(UserSerializer):
     """Custom user serializer."""
 
+    is_subscribed = SerializerMethodField()
+
     class Meta:
         fields = [
             'email',
@@ -22,6 +26,14 @@ class CustomUserSerializer(UserSerializer):
             'is_subscribed',
         ]
         model = CustomUser
+
+    def get_is_subscribed(self, obj):
+        try:
+            user = self.context.get('request').user
+            get_object_or_404(Follow, user=user.id, author=obj)
+            return True
+        except Exception:
+            return False
 
 
 class CreateUserSerializer(UserSerializer):
@@ -51,11 +63,11 @@ class ShortRecipeSerializer(ModelSerializer):
         model = Recipe
 
 
-
 class FollowSerializer(CustomUserSerializer):
     """Follow serializer."""
 
-    recipes = ShortRecipeSerializer(many=True, read_only=True)
+    is_subscribed = SerializerMethodField()
+    recipes = SerializerMethodField()
     recipes_count = SerializerMethodField()
 
     class Meta:
@@ -72,16 +84,29 @@ class FollowSerializer(CustomUserSerializer):
         model = CustomUser
 
     def get_recipes_count(self, obj):
-        counter = CustomUser.objects.filter(id=obj.id).annotate(Count('recipes'))
+        counter = CustomUser.objects.filter(id=obj.id).annotate(
+            Count('recipes')
+        )
         return counter[0].recipes__count
-    
+
+    def get_recipes(self, obj):
+        query_params = self.context.get('request').query_params
+        recipes_limit = query_params.get('recipes_limit')
+        if recipes_limit is not None:
+
+            recipes = Recipe.objects.filter(author=obj.id)[:int(recipes_limit)]
+        else:
+            recipes = Recipe.objects.filter(author=obj.id)
+        serializer = ShortRecipeSerializer(recipes, many=True, read_only=True)
+        return serializer.data
+
     def validate(self, data):
-        """Checks if this item is already in users cart."""
+        """Checks if you already follow this user."""
 
         author = self.instance
-        user = self.context.get('request').user.id
+        user = self.context.get('request').user
         try:
-            if get_object_or_404(Follow, user_id=user, author_id=author.id):
+            if get_object_or_404(Follow, user_id=user.id, author_id=author.id):
                 raise ValidationError('You are already following this author.')
         except Http404:
             return data
@@ -93,3 +118,19 @@ class FollowSerializer(CustomUserSerializer):
         data['first_name'] = author.first_name
         data['last_name'] = author.last_name
         return data
+
+
+class FollowListSerializer(FollowSerializer):
+    """
+    Follow serializer for getting a list of subscriptions.
+
+    This serializer is here because of the errrors with
+    is_subscribed field in this particular case. In other
+    words, this is KOSTYL'.
+    """
+
+    is_subscribed = BooleanField(default=True)
+
+    class Meta:
+        fields = FollowSerializer.Meta.fields
+        model = CustomUser
