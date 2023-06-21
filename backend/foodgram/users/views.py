@@ -6,7 +6,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from users.models import CustomUser, Follow
 from users.serializers import (
-    FollowSerializer, CustomUserSerializer, FollowListSerializer
+    CustomUserSerializer, FollowListSerializer,
+    FollowSerializer
 )
 
 

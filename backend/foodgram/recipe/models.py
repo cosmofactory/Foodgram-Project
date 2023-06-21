@@ -1,6 +1,6 @@
+from colorfield.fields import ColorField
 from django.db import models
 from users.models import CustomUser
-from colorfield.fields import ColorField
 
 
 class Ingredients(models.Model):
@@ -8,7 +8,7 @@ class Ingredients(models.Model):
 
     name = models.CharField(max_length=256)
     measurement_unit = models.CharField(verbose_name='единицы измерения')
-    slug = models.SlugField(max_length=90, unique=True)
+    slug = models.SlugField(max_length=90)
 
     def __str__(self):
         return self.name
@@ -43,7 +43,12 @@ class Recipe(models.Model):
         verbose_name='Пользователь'
     )
     name = models.CharField(max_length=256)
-    image = models.ImageField(null=True, blank=True, upload_to='images/')
+    image = models.ImageField(
+        null=True,
+        blank=True,
+        upload_to='images/',
+        max_length=250
+    )
     text = models.TextField(verbose_name='Текст рецепта')
     ingredients = models.ManyToManyField(
         Ingredients,

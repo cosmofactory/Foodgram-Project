@@ -1,20 +1,27 @@
 from io import BytesIO
 
+from api.permissions import RecipePermission
 from api.serializers import (
-    FavoriteSerializer, RecipeSerializer, RecipeShopcartSerializer,
-    TagSerializer, RecipeCreationSerializer,
-    IngredientViewSerializer
+    FavoriteSerializer, IngredientViewSerializer,
+    RecipeCreationSerializer, RecipeSerializer,
+    RecipeShopcartSerializer, TagSerializer
 )
+from django.db.models import Sum
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
-from recipe.models import Favorite, Ingredients, Recipe, Tags
+from django_filters.rest_framework import DjangoFilterBackend
+from recipe.models import (
+    Favorite, Ingredients, Recipe, RecipeIngredients,
+    Tags
+)
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
-from rest_framework import status, viewsets
+from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from shopcart.models import ShopCart
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters
 
 
 class TagsViewSet(viewsets.ReadOnlyModelViewSet):
@@ -41,6 +48,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     serializer_class = RecipeSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['author', 'tags__slug']
+    permission_classes = [RecipePermission, ]
 
     def get_queryset(self):
         user = self.request.user
@@ -107,9 +115,50 @@ class RecipeViewSet(viewsets.ModelViewSet):
         information = ShopCart.objects.filter(
             recipe__shopcart__user=self.request.user.id
         )
+        ingredients = information.values(
+            'recipe__recipe_with_ingredient__ingredient'
+        )
+        shopping_list = []
+        #  Temporal list for avoiding duplicates
+        temp_list = []
+        for ingredient in ingredients:
+            try:
+                ingredient_id = ingredient[
+                    'recipe__recipe_with_ingredient__ingredient'
+                ]
+                ingredient_obj = get_object_or_404(
+                    Ingredients,
+                    id=ingredient_id
+                )
+                #  Aggregating total amount of ingredients for all
+                #  recipes related to shopcart
+                if ingredient_obj.name not in temp_list:
+                    amount = RecipeIngredients.objects.filter(
+                        ingredient_id=ingredient_id,
+                        recipe__shopcart__user=self.request.user.id
+                    ).aggregate(Sum('amount'))['amount__sum']
+                    shopping_list.append(
+                        (
+                            ingredient_obj.name,
+                            amount,
+                            ingredient_obj.measurement_unit
+                        )
+                    )
+                #  Adding existing ingredient name to avoid duplicates
+                temp_list.append(ingredient_obj.name)
+            except Http404:
+                continue
         buffer = BytesIO()
-        file = canvas.Canvas(buffer)
-        file.drawString(100, 100, str(information))
+        file = canvas.Canvas(buffer, pagesize=A4)
+        pdf = file.beginText()
+        pdfmetrics.registerFont(TTFont('Verdana', 'Verdana.ttf'))
+        pdf.setFont("Verdana", 18)
+        pdf.setTextOrigin(80, 750)
+        pdf.textLine('Список ингредиентов')
+        pdf.setFont("Verdana", 12)
+        for line in shopping_list:
+            pdf.textLine(f'{line[0]} {line[1]} {line[2]}')
+        file.drawText(pdf)
         file.showPage()
         file.save()
         buffer.seek(0)

@@ -1,6 +1,6 @@
 from django.db import models
-from users.models import CustomUser
 from recipe.models import Recipe
+from users.models import CustomUser
 
 
 class ShopCart(models.Model):

@@ -5,7 +5,8 @@ from django.core.files.base import ContentFile
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from recipe.models import (
-    Favorite, Ingredients, Recipe, RecipeIngredients, Tags, RecipeTags
+    Favorite, Ingredients, Recipe, RecipeIngredients,
+    RecipeTags, Tags
 )
 from rest_framework import serializers
 from shopcart.models import ShopCart
