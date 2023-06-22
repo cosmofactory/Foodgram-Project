@@ -1,6 +1,6 @@
 from colorfield.fields import ColorField
 from django.db import models
-from users.models import CustomUser
+from users.models import User
 
 
 class Ingredients(models.Model):
@@ -14,7 +14,7 @@ class Ingredients(models.Model):
         return self.name
 
     class Meta:
-        ordering = ['-name']
+        ordering = ('-name',)
         verbose_name_plural = 'Ingredients'
 
 
@@ -29,7 +29,7 @@ class Tags(models.Model):
         return self.name
 
     class Meta:
-        ordering = ['-name']
+        ordering = ('-name',)
         verbose_name_plural = 'Tags'
 
 
@@ -37,7 +37,7 @@ class Recipe(models.Model):
     """Recipe model."""
 
     author = models.ForeignKey(
-        CustomUser,
+        User,
         on_delete=models.CASCADE,
         related_name='recipes',
         verbose_name='Пользователь'
@@ -63,7 +63,8 @@ class Recipe(models.Model):
         verbose_name='Теги',
         related_name='recipes'
     )
-    cooking_time = models.PositiveIntegerField(
+    #  а зачем здесь валидатор? поле же и так Positive
+    cooking_time = models.PositiveSmallIntegerField(
         verbose_name='Время приготовления'
     )
 
@@ -131,7 +132,7 @@ class Favorite(models.Model):
     """Favorite model."""
 
     user = models.ForeignKey(
-        CustomUser,
+        User,
         on_delete=models.CASCADE,
         null=True
     )
@@ -147,5 +148,29 @@ class Favorite(models.Model):
             models.UniqueConstraint(
                 fields=['user', 'recipe'],
                 name='unique_user_recipe_favorite'
+            )
+        ]
+
+
+class ShopCart(models.Model):
+    """Shopping cart for recipes."""
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        null=True
+    )
+    recipe = models.ForeignKey(
+        Recipe,
+        related_name='shopcart',
+        on_delete=models.CASCADE,
+        null=True
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'recipe'],
+                name='unique_user_recipe'
             )
         ]
