@@ -12,7 +12,7 @@ from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from recipe.models import (
     Favorite, Ingredients, Recipe, RecipeIngredients,
-    Tags
+    Tags, ShopCart
 )
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfbase import pdfmetrics
@@ -21,7 +21,6 @@ from reportlab.pdfgen import canvas
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from shopcart.models import ShopCart
 
 
 class TagsViewSet(viewsets.ReadOnlyModelViewSet):
@@ -58,13 +57,10 @@ class RecipeViewSet(viewsets.ModelViewSet):
             'tags',
             'author'
         ).order_by('name')
-        favorited = self.request.query_params.get('is_favorited')
-        if favorited == '1':
+        if self.request.query_params.get('is_favorited'):
             queryset = queryset.filter(favorited__user_id=user.id)
-        in_shop_cart = self.request.query_params.get('is_in_shopping_cart')
-        if in_shop_cart == '1':
+        if self.request.query_params.get('is_in_shopping_cart'):
             queryset = queryset.filter(shopcart__user_id=user.id)
-
         tags = self.request.query_params.getlist('tags')
         if not not tags:
             queryset = queryset.filter(tags__slug__in=tags)
@@ -91,7 +87,6 @@ class RecipeViewSet(viewsets.ModelViewSet):
             )
             serializer.is_valid(raise_exception=True)
             ShopCart.objects.create(user_id=user, recipe=recipe)
-            serializer.save(id=user, recipe=recipe)
             return Response(serializer.data)
         if self.request.method == 'DELETE':
             try:
@@ -179,7 +174,6 @@ class RecipeViewSet(viewsets.ModelViewSet):
             )
             serializer.is_valid(raise_exception=True)
             Favorite.objects.create(user_id=user, recipe=recipe)
-            serializer.save(id=user, recipe=recipe)
             return Response(serializer.data)
         if self.request.method == 'DELETE':
             try:

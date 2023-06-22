@@ -1,12 +1,10 @@
-from users.models import CustomUser
+from users.models import User
 from djoser.serializers import UserSerializer
 from rest_framework.serializers import (
     SerializerMethodField, ModelSerializer, BooleanField
 )
 from users.models import Follow
-from django.db.models import Count
 from recipe.models import Recipe
-from django.shortcuts import get_object_or_404
 from django.core.exceptions import ValidationError
 from django.http import Http404
 
@@ -25,13 +23,14 @@ class CustomUserSerializer(UserSerializer):
             'last_name',
             'is_subscribed',
         ]
-        model = CustomUser
+        model = User
 
     def get_is_subscribed(self, obj):
         try:
             user = self.context.get('request').user
-            get_object_or_404(Follow, user=user.id, author=obj)
-            return True
+            if Follow.objects.filter(user=user.id, author=obj).exists():
+                return True
+            return False
         except Exception:
             return False
 
@@ -47,7 +46,7 @@ class CreateUserSerializer(UserSerializer):
             'last_name',
             'password',
         ]
-        model = CustomUser
+        model = User
 
 
 class ShortRecipeSerializer(ModelSerializer):
@@ -81,13 +80,14 @@ class FollowSerializer(CustomUserSerializer):
             'recipes',
             'recipes_count',
         ]
-        model = CustomUser
+        model = User
 
     def get_recipes_count(self, obj):
-        counter = CustomUser.objects.filter(id=obj.id).annotate(
-            Count('recipes')
+        counter = User.objects.filter(id=obj.id).values_list(
+            'recipes',
+            flat=True
         )
-        return counter[0].recipes__count
+        return counter.count()
 
     def get_recipes(self, obj):
         query_params = self.context.get('request').query_params
@@ -102,12 +102,15 @@ class FollowSerializer(CustomUserSerializer):
 
     def validate(self, data):
         """Checks if you already follow this user."""
-
         author = self.instance
         user = self.context.get('request').user
         try:
-            if get_object_or_404(Follow, user_id=user.id, author_id=author.id):
+            if Follow.objects.filter(
+                user_id=user.id,
+                author_id=author.id
+            ).exists():
                 raise ValidationError('You are already following this author.')
+            return data
         except Http404:
             return data
 
@@ -133,4 +136,4 @@ class FollowListSerializer(FollowSerializer):
 
     class Meta:
         fields = FollowSerializer.Meta.fields
-        model = CustomUser
+        model = User

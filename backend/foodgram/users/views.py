@@ -4,7 +4,7 @@ from djoser.views import UserViewSet as DjoserUserViewset
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from users.models import CustomUser, Follow
+from users.models import User, Follow
 from users.serializers import (
     CustomUserSerializer, FollowListSerializer,
     FollowSerializer
@@ -26,7 +26,7 @@ class UserViewSet(DjoserUserViewset):
 
     @action(detail=False)
     def subscriptions(self, request):
-        follow = get_list_or_404(CustomUser, following__user=self.request.user)
+        follow = get_list_or_404(User, following__user=self.request.user)
         page = self.paginate_queryset(follow)
         serializer = FollowListSerializer(
             page,
@@ -39,7 +39,7 @@ class UserViewSet(DjoserUserViewset):
     def subscribe(self, request, **kwargs):
         """Adds or removes recipe from user's favorite list."""
         user = self.request.user
-        author = get_object_or_404(CustomUser, **kwargs)
+        author = get_object_or_404(User, **kwargs)
         if self.request.method == 'POST':
             if user == author:
                 return Response(
