@@ -83,7 +83,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
             serializer = RecipeShopcartSerializer(
                 recipe,
                 data=request.data,
-                context={'request': request}
+                context={'request': request},
+                partial=True
             )
             serializer.is_valid(raise_exception=True)
             ShopCart.objects.create(user_id=user, recipe=recipe)
@@ -170,7 +171,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
             serializer = FavoriteSerializer(
                 recipe,
                 data=request.data,
-                context={'request': request}
+                context={'request': request},
+                partial=True
             )
             serializer.is_valid(raise_exception=True)
             Favorite.objects.create(user_id=user, recipe=recipe)

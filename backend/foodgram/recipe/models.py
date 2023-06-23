@@ -1,6 +1,10 @@
 from colorfield.fields import ColorField
 from django.db import models
+from django.core.validators import MinValueValidator
 from users.models import User
+
+
+MIN_VALUE = 1
 
 
 class Ingredients(models.Model):
@@ -63,16 +67,16 @@ class Recipe(models.Model):
         verbose_name='Теги',
         related_name='recipes'
     )
-    #  а зачем здесь валидатор? поле же и так Positive
     cooking_time = models.PositiveSmallIntegerField(
-        verbose_name='Время приготовления'
+        verbose_name='Время приготовления',
+        validators=[MinValueValidator(MIN_VALUE)]
     )
 
     def __str__(self):
         return f'{self.author.username} {self.name}'
 
     class Meta:
-        ordering = ['-name']
+        ordering = ('-name',)
         verbose_name_plural = 'Recipes'
 
 
@@ -89,7 +93,9 @@ class RecipeIngredients(models.Model):
         related_name='ingredient',
         on_delete=models.CASCADE
     )
-    amount = models.FloatField()
+    amount = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(MIN_VALUE)]
+    )
 
     def __str__(self):
         return f'{self.recipe} {self.ingredient}'
