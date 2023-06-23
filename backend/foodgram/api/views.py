@@ -38,14 +38,14 @@ class IngredientsViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Ingredients.objects.all()
     filter_backends = [filters.SearchFilter]
     pagination_class = None
-    search_fields = ('name',)
+    search_fields = ('^name',)
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
     """Viewset for Recipes."""
 
     serializer_class = RecipeSerializer
-    filter_backends = [DjangoFilterBackend]
+    filter_backends = [DjangoFilterBackend, ]
     filterset_fields = ['author', 'tags__slug']
     permission_classes = [RecipePermission, ]
 
@@ -62,8 +62,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
         if self.request.query_params.get('is_in_shopping_cart'):
             queryset = queryset.filter(shopcart__user_id=user.id)
         tags = self.request.query_params.getlist('tags')
-        if not not tags:
-            queryset = queryset.filter(tags__slug__in=tags)
+        if tags:
+            queryset = queryset.filter(tags__slug__in=tags).distinct()
         return queryset
 
     def get_serializer_class(self):
