@@ -6,7 +6,6 @@ from rest_framework.serializers import (
 from users.models import Follow
 from recipe.models import Recipe
 from django.core.exceptions import ValidationError
-from django.http import Http404
 
 
 class CustomUserSerializer(UserSerializer):
@@ -26,11 +25,13 @@ class CustomUserSerializer(UserSerializer):
         model = User
 
     def get_is_subscribed(self, obj):
+        """Subscription check."""
         try:
             user = self.context.get('request').user
-            if Follow.objects.filter(user=user.id, author=obj).exists():
-                return True
-            return False
+            return Follow.objects.filter(user=user.id, author=obj).exists()
+        #  Обработка нужна, т.к. после создания рецепта у нас нет информации
+        #  о текущем юзере, соответсвенно прилетает ошибка. Т.к. подписаться
+        #  на самого себя все равно нельзя, то такой формат сильно спасает
         except Exception:
             return False
 
@@ -83,11 +84,10 @@ class FollowSerializer(CustomUserSerializer):
         model = User
 
     def get_recipes_count(self, obj):
-        counter = User.objects.filter(id=obj.id).values_list(
+        return User.objects.filter(id=obj.id).values_list(
             'recipes',
             flat=True
-        )
-        return counter.count()
+        ).count()
 
     def get_recipes(self, obj):
         query_params = self.context.get('request').query_params
@@ -104,15 +104,12 @@ class FollowSerializer(CustomUserSerializer):
         """Checks if you already follow this user."""
         author = self.instance
         user = self.context.get('request').user
-        try:
-            if Follow.objects.filter(
-                user_id=user.id,
-                author_id=author.id
-            ).exists():
-                raise ValidationError('You are already following this author.')
-            return data
-        except Http404:
-            return data
+        if Follow.objects.filter(
+            user_id=user.id,
+            author_id=author.id
+        ).exists():
+            raise ValidationError('You are already following this author.')
+        return data
 
     def to_internal_value(self, data):
         author = self.instance

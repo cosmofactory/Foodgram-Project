@@ -2,13 +2,16 @@ import base64
 
 from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
-from django.http import Http404
+from django.core.validators import MinValueValidator
 from recipe.models import (
     Favorite, Ingredients, Recipe, RecipeIngredients,
     RecipeTags, Tags, ShopCart
 )
 from rest_framework import serializers
 from users.serializers import CustomUserSerializer
+
+
+MIN_VALUE = 1
 
 
 class Base64ImageField(serializers.ImageField):
@@ -24,6 +27,7 @@ class SubscriptionSerializer(serializers.Serializer):
     """Abstract model for serializers that do subscriptions."""
 
     class Meta:
+        model = ShopCart
         fields = [
             'id',
             'name',
@@ -31,26 +35,16 @@ class SubscriptionSerializer(serializers.Serializer):
             'cooking_time'
         ]
 
-    def __init__(self, instance=None, data=None, *args, **kwargs):
-        super().__init__(instance=instance, data=data, **kwargs)
-        #  а разве этот класс по сути своей не является миксином?
-        #  я наследуюсь от него, чтобы validate() каждый раз не описывать
-        self.error_message = 'This recipe is already in your cart.'
-        self.model = ShopCart
-
     def validate(self, data):
         """Checks if this item is already created."""
         recipe = self.instance
         user = self.context.get('request').user.id
-        try:
-            if self.model.objects.filter(
-                user_id=user,
-                recipe_id=recipe.id
-            ).exists():
-                raise ValidationError(self.error_message)
-            return data
-        except Http404:
-            return data
+        if self.model.objects.filter(
+            user_id=user,
+            recipe_id=recipe.id
+        ).exists():
+            raise ValidationError('Item already in shopcart')
+        return data
 
     def to_internal_value(self, data):
         recipe = self.instance
@@ -71,14 +65,19 @@ class IngredientSerializer(serializers.ModelSerializer):
     """
     Ingredient serializer for recipe creation.
 
-    Both fields are required for succesfull creation.
+    Поле id должно быть описано отдельно, чтобы при создании
+    рецепта его хватал instance.
+    Поле amount нужно для валидации, т.к. валидация модели при
+    создании через nested serializers почему то не работает.
     """
 
     id = serializers.IntegerField()
-    amount = serializers.FloatField()
+    amount = serializers.IntegerField(validators=[
+        MinValueValidator(MIN_VALUE)
+    ])
 
     class Meta:
-        model = Ingredients
+        model = RecipeIngredients
         fields = ['id', 'amount']
 
 
@@ -144,9 +143,17 @@ class RecipeSerializer(serializers.ModelSerializer):
         try:
             request = self.context['request']
             user = request.user.id
-            if ShopCart.objects.filter(user=user, recipe_id=obj.id).exists():
-                return True
-            return False
+            return ShopCart.objects.filter(
+                user=user,
+                recipe_id=obj.id
+            ).exists()
+        #  После создания рецепта прилетает ошибка, что код не может
+        #  обработать данную функцию. После создания рецепта нам
+        #  возвращается json, где идет проверка на все 3 типа подписок
+        #  поскольку никакого запроса мы не делали, весь этот код проверок
+        #  не работает, так что либо обрабатывать данное исключение, либо
+        #  создавать 3й сериализатор для рецепта на выдачу, с
+        #  этими полями BooleanField(default=False)
         except Exception:
             return False
 
@@ -154,37 +161,50 @@ class RecipeSerializer(serializers.ModelSerializer):
         try:
             request = self.context['request']
             user = request.user.id
-            if Favorite.objects.filter(user=user, recipe_id=obj.id).exists():
-                return True
-            return False
+            return Favorite.objects.filter(
+                user=user,
+                recipe_id=obj.id
+            ).exists()
         except Exception:
             return False
 
 
-class RecipeShopcartSerializer(
-    SubscriptionSerializer,
-    serializers.ModelSerializer
-):
+class RecipeShopcartSerializer(serializers.ModelSerializer):
     """Shopcart serializer."""
 
     class Meta:
         model = Recipe
-        fields = SubscriptionSerializer.Meta.fields
+        fields = ['id', 'name', 'image', 'cooking_time']
+
+    def validate(self, data):
+        """Checks if this item is already created."""
+        recipe = self.instance
+        user = self.context.get('request').user.id
+        if ShopCart.objects.filter(
+            user_id=user,
+            recipe_id=recipe.id
+        ).exists():
+            raise ValidationError('Item already in shopcart.')
+        return data
 
 
-class FavoriteSerializer(
-    SubscriptionSerializer,
-    serializers.ModelSerializer
-):
+class FavoriteSerializer(serializers.ModelSerializer):
     """Favorite serializer."""
 
     class Meta:
         model = Recipe
-        fields = SubscriptionSerializer.Meta.fields
+        fields = ['id', 'name', 'image', 'cooking_time']
 
-    def __init__(self, instance=None, data=None, *args, **kwargs):
-        super().__init__(instance=instance, data=data, **kwargs)
-        self.error_message = 'This recipe is already favorite.'
+    def validate(self, data):
+        """Checks if this item is already created."""
+        recipe = self.instance
+        user = self.context.get('request').user.id
+        if Favorite.objects.filter(
+            user_id=user,
+            recipe_id=recipe.id
+        ).exists():
+            raise ValidationError('This recipe is already favorite.')
+        return data
 
 
 class RecipeCreationSerializer(serializers.ModelSerializer):
@@ -253,21 +273,23 @@ class RecipeCreationSerializer(serializers.ModelSerializer):
         instance.save()
 
         RecipeIngredients.objects.filter(recipe_id=self.data['id']).delete()
+        creation_list = []
         for new in new_ingredients:
-            # Updating or creating existing DB objects
             ingredient_id = new.get('id')
             ingredient_amount = new.get('amount')
-            RecipeIngredients.objects.update_or_create(
+            creation_list.append(RecipeIngredients(
                 ingredient_id=ingredient_id,
                 recipe_id=self.data['id'],
-                defaults={'amount': ingredient_amount}
-            )
+                amount=ingredient_amount
+            ))
+        RecipeIngredients.objects.bulk_create(creation_list)
 
         RecipeTags.objects.filter(recipe_id=self.data['id']).delete()
+        creation_list = []
         for new in new_tags:
-            # Updating or creating existing DB objects
-            RecipeTags.objects.update_or_create(
+            creation_list.append(RecipeTags(
                 tag_id=new.id,
-                recipe_id=self.data['id'],
-            )
+                recipe_id=self.data['id']
+            ))
+        RecipeTags.objects.bulk_create(creation_list)
         return instance
