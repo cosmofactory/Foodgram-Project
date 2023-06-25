@@ -10,6 +10,7 @@ from django.db.models import Sum
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
+from wsgiref.util import FileWrapper
 from recipe.models import (
     Favorite, Ingredients, Recipe, RecipeIngredients,
     Tags, ShopCart
@@ -158,8 +159,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
         file.showPage()
         file.save()
         buffer.seek(0)
+        wrapper = FileWrapper(buffer)
         return FileResponse(
-            buffer, as_attachment=True, filename='shopping_cart.pdf'
+            wrapper, as_attachment=True, filename='shopping_cart.pdf'
         )
 
     @action(detail=True, methods=('post', 'delete'))
