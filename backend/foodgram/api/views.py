@@ -159,9 +159,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
         file.showPage()
         file.save()
         buffer.seek(0)
-        wrapper = FileWrapper(buffer)
         return FileResponse(
-            wrapper, as_attachment=True, filename='shopping_cart.pdf'
+            buffer, as_attachment=True, filename='shopping_cart.pdf'
         )
 
     @action(detail=True, methods=('post', 'delete'))
