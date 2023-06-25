@@ -181,7 +181,7 @@ class RecipeShopcartSerializer(serializers.ModelSerializer):
         #  через миксин, либо через отдельный класс, который заберет и логику
         #  из views.py.
         model = ShopCart
-        fields = ['__all__']
+        fields = ['id']
 
     def validate(self, data):
         """Checks if this item is already created."""
@@ -208,7 +208,7 @@ class FavoriteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Favorite
-        fields = ['__all__']
+        fields = ['id']
 
     def validate(self, data):
         """Checks if this item is already created."""
