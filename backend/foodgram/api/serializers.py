@@ -9,6 +9,7 @@ from recipe.models import (
 )
 from rest_framework import serializers
 from users.serializers import CustomUserSerializer
+from api.utils import create_ingredients, create_tags
 
 
 MIN_VALUE = 1
@@ -141,31 +142,30 @@ class RecipeSerializer(serializers.ModelSerializer):
 
     def get_is_in_shopping_cart(self, obj):
         try:
-            request = self.context['request']
+            request = self.context.get('request')
             user = request.user.id
             return ShopCart.objects.filter(
                 user=user,
                 recipe_id=obj.id
             ).exists()
-        #  После создания рецепта прилетает ошибка, что код не может
-        #  обработать данную функцию. После создания рецепта нам
-        #  возвращается json, где идет проверка на все 3 типа подписок
-        #  поскольку никакого запроса мы не делали, весь этот код проверок
-        #  не работает, так что либо обрабатывать данное исключение, либо
-        #  создавать 3й сериализатор для рецепта на выдачу, с
-        #  этими полями BooleanField(default=False)
-        except Exception:
+        #  Как и просил, обработал именно по частному случаю
+        #  При создании рецепта прилетает ошибка KeyError: 'request'
+        #  Либо, если через get(), то attirubute error.
+        #  Потому что никакого request то не было, мы создавали рецепт
+        #  Сделал через get() и часнтный случай, который не влияет
+        #  на функциональность обработал.
+        except AttributeError:
             return False
 
     def get_is_favorited(self, obj):
         try:
-            request = self.context['request']
+            request = self.context.get('request')
             user = request.user.id
             return Favorite.objects.filter(
                 user=user,
                 recipe_id=obj.id
             ).exists()
-        except Exception:
+        except AttributeError:
             return False
 
 
@@ -173,8 +173,15 @@ class RecipeShopcartSerializer(serializers.ModelSerializer):
     """Shopcart serializer."""
 
     class Meta:
-        model = Recipe
-        fields = ['id', 'name', 'image', 'cooking_time']
+        #  Модели сделал в соответствии с сериализатором. Я понял про твои
+        #  два метода, здесь действительно следующие 40 строчек кода абсолютно
+        #  одинаковые, изначально я и пытался этот момент решить через
+        #  наследование, не додумавшись до миксина. Из-за того что дедлайн
+        #  горит, я сделал как проще но хуже). Потом доработаю этот участок
+        #  через миксин, либо через отдельный класс, который заберет и логику
+        #  из views.py.
+        model = ShopCart
+        fields = ['__all__']
 
     def validate(self, data):
         """Checks if this item is already created."""
@@ -187,13 +194,21 @@ class RecipeShopcartSerializer(serializers.ModelSerializer):
             raise ValidationError('Item already in shopcart.')
         return data
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['id'] = instance.id
+        representation['name'] = instance.name
+        representation['image'] = instance.image.url
+        representation['cooking_time'] = instance.cooking_time
+        return representation
+
 
 class FavoriteSerializer(serializers.ModelSerializer):
     """Favorite serializer."""
 
     class Meta:
-        model = Recipe
-        fields = ['id', 'name', 'image', 'cooking_time']
+        model = Favorite
+        fields = ['__all__']
 
     def validate(self, data):
         """Checks if this item is already created."""
@@ -205,6 +220,14 @@ class FavoriteSerializer(serializers.ModelSerializer):
         ).exists():
             raise ValidationError('This recipe is already favorite.')
         return data
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['id'] = instance.id
+        representation['name'] = instance.name
+        representation['image'] = instance.image.url
+        representation['cooking_time'] = instance.cooking_time
+        return representation
 
 
 class RecipeCreationSerializer(serializers.ModelSerializer):
@@ -239,23 +262,8 @@ class RecipeCreationSerializer(serializers.ModelSerializer):
         ingredients = validated_data.pop('ingredients')
         tags = validated_data.pop('tags')
         recipe = Recipe.objects.create(**validated_data)
-        creation_list = []
-        for ingredient in ingredients:
-            ingredient_id = ingredient.get('id')
-            amount = ingredient.get('amount')
-            creation_list.append(RecipeIngredients(
-                ingredient_id=ingredient_id,
-                recipe=recipe,
-                amount=amount
-            ))
-        RecipeIngredients.objects.bulk_create(creation_list)
-        creation_list = []
-        for tag in tags:
-            creation_list.append(RecipeTags(
-                tag=tag,
-                recipe=recipe
-            ))
-        RecipeTags.objects.bulk_create(creation_list)
+        create_ingredients(RecipeIngredients, ingredients, recipe.id)
+        create_tags(RecipeTags, tags, recipe.id)
         return recipe
 
     def update(self, instance, validated_data):
@@ -271,25 +279,9 @@ class RecipeCreationSerializer(serializers.ModelSerializer):
         )
         instance.tags.set(new_tags)
         instance.save()
-
+        recipe = self.data['id']
         RecipeIngredients.objects.filter(recipe_id=self.data['id']).delete()
-        creation_list = []
-        for new in new_ingredients:
-            ingredient_id = new.get('id')
-            ingredient_amount = new.get('amount')
-            creation_list.append(RecipeIngredients(
-                ingredient_id=ingredient_id,
-                recipe_id=self.data['id'],
-                amount=ingredient_amount
-            ))
-        RecipeIngredients.objects.bulk_create(creation_list)
-
         RecipeTags.objects.filter(recipe_id=self.data['id']).delete()
-        creation_list = []
-        for new in new_tags:
-            creation_list.append(RecipeTags(
-                tag_id=new.id,
-                recipe_id=self.data['id']
-            ))
-        RecipeTags.objects.bulk_create(creation_list)
+        create_ingredients(RecipeIngredients, new_ingredients, recipe)
+        create_tags(RecipeTags, new_tags, recipe)
         return instance
