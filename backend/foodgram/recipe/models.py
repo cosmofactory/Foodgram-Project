@@ -48,8 +48,6 @@ class Recipe(models.Model):
     )
     name = models.CharField(max_length=256)
     image = models.ImageField(
-        null=True,
-        blank=True,
         upload_to='images/',
         max_length=250
     )
@@ -58,12 +56,11 @@ class Recipe(models.Model):
         Ingredients,
         through='RecipeIngredients',
         verbose_name='Индгредиенты',
-        related_name='recipes'
+        related_name='recipes',
     )
     tags = models.ManyToManyField(
         Tags,
         through='RecipeTags',
-        blank=True,
         verbose_name='Теги',
         related_name='recipes'
     )
